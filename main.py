@@ -1,25 +1,42 @@
 #!/usr/bin/python
 
+# libs
 import cgitb
 import cgi
-cgitb.enable(display=0, logdir="/srv/http/.pylog")
+
+# pynocms files
+from core import dbconnect
+from core import request
+from core import response
+from core import admin
+from core import public
+# cgitb.enable(display=0, logdir="/srv/http/.pylog")
 
 
-print ("Content-type:text/html\r\n\r\n")
+def main():
+    
+    # defaults
+    dbconfig = "dbconfig.txt"
 
-# get the url contents
-req = cgi.FieldStorage()
+    # try to open/read from dbconfig
+    db = dbconnect.DBObj()
+    db.configure(dbconfig)
 
-# if we're not at the base URL
-if req.getvalue("p") != "test.py":
-    item = req.getvalue("p")[1]
-else:
-    item = "welcome!"
+    if !db.configexists:
+        run_setup()
+    else if db.connection :
+        # create a request object
+        theReq = URIRequest()
+        # put in the URL data and stuff
+        theReq.parse_request(cgi.FieldStorage)
+    
+    print ("Content-type:text/html\r\n\r\n")
+    
+    print ("<html><head><title>test</title></head><body>")
+    
+    print ("testu")
 
-print ("<html><head><title>test</title></head><body>")
+    print ("</body></html>")
 
-print (item)
-
-print ("</body></html>")
-
-
+if __name__ == 'main':
+    main()
