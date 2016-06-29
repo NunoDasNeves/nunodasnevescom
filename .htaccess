@@ -2,4 +2,4 @@ Options +FollowSymLinks
 RewriteEngine On
 RewriteBase /
 
-RewriteRule ^(.*)$ test.py?p=$1 [L,QSA]
+RewriteRule ^(.*)$ main.py?p=$1 [L,QSA]
