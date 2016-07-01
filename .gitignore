@@ -1,3 +1,5 @@
 .pylog/
 testinfo
 __pycache__
+.project
+.pydevproject
