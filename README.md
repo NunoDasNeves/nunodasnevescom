@@ -11,23 +11,23 @@ simple python-based blog cms
 main.py  
 dbconfig.txt  
 /core  
-    dbconnect.py  
-    request.py  
-    response.py  
-    admin.py  
-    public.py  
-    /pages  
-        empty.html  
-        edit.html  
-    /dashboard  
-        main.html  
-        style.css  
-    /setup  
-        newdb.html  
-        newuser.html  
-        style.css  
-    /media  
-        hamburger.png  
+*    dbconnect.py  
+*    request.py  
+*    response.py  
+*    admin.py  
+*    public.py  
+*    /edit  
+**        empty.html  
+**        edit.html  
+*    /dashboard  
+**        main.html  
+**        style.css  
+*    /setup  
+**        setup1.html  
+**        setup2.html  
+**        style.css  
+*    /media  
+**        hamburger.png  
 /content  
     /templates  
         page.py  
