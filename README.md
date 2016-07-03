@@ -17,15 +17,15 @@ dbconfig.txt
 *    admin.py  
 *    public.py  
 *    /edit  
-**        empty.html  
-**        edit.html  
+* *        empty.html  
+* *        edit.html  
 *    /dashboard  
-**        main.html  
-**        style.css  
+* *        main.html  
+* *        style.css  
 *    /setup  
-**        setup1.html  
-**        setup2.html  
-**        style.css  
+* *        setup1.html  
+* *        setup2.html  
+* *        style.css  
 *    /media  
 **        hamburger.png  
 /content  
