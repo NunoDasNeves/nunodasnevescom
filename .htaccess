@@ -7,5 +7,5 @@ RewriteBase /
 RewriteRule ^main\.py$ - [L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ /main.py?p=$1 [L,QSA]
+RewriteRule ^(.*)$ /main.py?uri=$1 [L,QSA]
 #RewriteRule . /main.py [L]

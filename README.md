@@ -7,20 +7,20 @@ simple python-based blog cms
 /------------------------------/  
 /-------- dir structure -------/
 
-/  
-main.py  
-dbconfig.txt  
+/
+main.py
+dbconfig.txt
 /core  
-*    dbconnect.py  
-*    request.py  
-*    response.py  
-*    admin.py  
-*    public.py  
-*    /edit  
-* *        empty.html  
-* *        edit.html  
-*    /dashboard  
-* *        main.html  
+    dbconnect.py  
+    request.py  
+    response.py  
+    admin.py  
+    public.py  
+    /edit  
+        empty.html  
+        edit.html  
+    /dashboard  
+        main.html  
 * *        style.css  
 *    /setup  
 * *        setup1.html  
@@ -51,16 +51,19 @@ dbname: pycms
 pages  
     id  
     title
+    author
+    createdate
+    editeddate
     slug
     text
-    type
     template
 
 posts
     id
     author
     title
-    date
+    createdate
+    editeddate
     tags
     slug
     photo
@@ -74,10 +77,18 @@ comments
     text
 
 users
-    type
+    id
+    joindate
+    group
     username
     email
     password
+
+sessions
+    id
+    sid
+    user
+    date
     
 options
     pagetemplate
@@ -85,6 +96,8 @@ options
     hometemplate
     allownewusers
     allowcomments
+    categoryslug
+
 
 /------------------------------/
 

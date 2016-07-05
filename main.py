@@ -1,84 +1,20 @@
 #!/usr/bin/python
-import os
-#import re
+
+# cgi stuff
 import cgitb
 import cgi
 
-# database
-import mysql.connector
-from mysql.connector import errorcode
+# for cookies and ssids and stuff other things
+import os
+import http.cookies
+import uuid
 
-class DBConfig:
+# database classes
+from core import dbclasses
+
+class URIaction:
     def __init__(self):
-        self.exists = False
-        self.valid = False
-        self.name = ""
-        self.user = ""
-        self.password = ""
-        self.host = "localhost"
-        self.configpath = "dbconfig.txt"
-        
-    def check_existence(self): 
-        if os.path.isfile(self.configpath):
-            self.exists = True
-        else:
-            self.exists = False
-            self.valid = False # if it doesn't exist, it can't be valid
-        return self.exists
-            
-    def  check_valid(self):
-        self.f = open(self.configpath, "r")
-        self.list = self.f.read().split('\n')
-        # find values with split
-        if len(self.list) == 5:
-            self.valid = True
-            # TODO regexp this so user can create file manually without being as strict with formatting
-            self.name = self.list[0].split('=')[1]
-            self.user = self.list[1].split('=')[1]
-            self.password = self.list[2].split('=')[1]
-            self.host = self.list[3].split('=')[1]
-        else:
-            self.valid = False
-        self.f.close()
-        return self.valid
-        
-class DBCnx:
-    def __init__(self):
-        self.connected = False
-        
-    def connect(self, configfile):
-        try:
-            self.cnx = mysql.connector.connect(user=configfile.user, password=configfile.password, host=configfile.host,database=configfile.name)
-            self.cursor = self.cnx.cursor() 
-            self.connected = True
-        #except mysql.Error as err:
-         #   if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-         #         print("Error: could not connect to database "+configfile.name+" on "+configfile.user+"@"+configfile.host+"; authentication failed\n")
-         #   elif err.errno == errorcode.ER_BAD_DB_ERROR:
-         #       print("Error: database "+configfile.name+" does not exist\n")
-         #   else:
-         #       print(err)
-        except:
-            self.cnx.close()
-            self.connected = False
-            
-        return self.connected
-    
-    def close(self):
-        self.cnx.close()
-        
-    def create_tables(self):
-        return True
-    
-    def drop_tables(self):
-        return True
-    
-    def execute(self, command):
-        return True
-    
-class Action:
-    def __init__(self):
-        # codes: NONE SETUP ADMIN PAGE BLOG POST EDIT
+        # codes: NONE SETUP ADMIN PAGE POST EDIT ERROR
         self.code = "NONE"
         # is the home page
         self.home = False
@@ -89,7 +25,7 @@ class Action:
         #category tags
         self.tags = []
         
-    def get_request(self, req,dbcnx):
+    def get_request(self, req):
         
         self.diroffset = 0
         self.items = []
@@ -97,12 +33,12 @@ class Action:
         #print ("len(req) = "+str(len(req)))
         if len(req) == 0:
             self.home = True
-            self.code = "PAGE"#self.is_blog("/")
+            self.code = "PAGE"
             self.target = "/"
             
         else:
             # otherwise, split it into an array
-            self.items = req.getvalue("p").split('/')
+            self.items = req.getvalue("uri").split('/')
             
             # strip empty strings
             while self.items[-1] == "":
@@ -121,10 +57,7 @@ class Action:
                 self.home = True
                 self.target = "/"
                 # check whether home is actually a blog
-                if self.is_blog(dbcnx):
-                    self.code = "BLOG"
-                else:
-                    self.code = "PAGE"
+                self.code = "PAGE"
                 self.diroffset = 1
             # if its a post, it'll be preceded by this, then will have the slug as 2nd element. ignore later elements
             elif (self.items[0] == "post") and (len(self.items) > 1):
@@ -147,18 +80,14 @@ class Action:
                 #print (self.items)
                 #print(self.diroffset)
                 
-                # figure out if the page is a blog
-                if self.is_blog(dbcnx):
-                    self.code = "BLOG"
-                else:
-                    self.code = "PAGE"
+                self.code = "PAGE"
                 
-                print (self.code)
-                print (self.items)
-                print (self.items[self.diroffset])
-                print (self.diroffset)
+                #print (self.code)
+                #print (self.items)
+                #print (self.items[self.diroffset])
+                #print (self.diroffset)
                 # if a blog
-                if (len(self.items) > self.diroffset) and (self.code == "BLOG") and (self.items[self.diroffset] == "category"):
+                if (len(self.items) > self.diroffset) and (self.items[self.diroffset] == "category"):
                     self.filter = True
                     self.diroffset += 1
                 # else if an edit page
@@ -175,72 +104,175 @@ class Action:
     def is_blog(self,dbcnx):
         #TODO write this
         return False
+ 
+class POSTdata:
+    def __init__(self):
+        self.username = ""
+        self.password = ""
+
+class AuthObj:
+    def __init__(self):
+        self.sessauthorized = False
+        self.username = ""
+        self.sesscookie = http.cookies.BaseCookie()
+        self.newsesscookie = http.cookies.BaseCookie()
+        self.update_cookie()
+        self.ip = ""
+        # stores latest mysql response
+        self.response = ""
+        
+    def update_cookie(self):
+        if ("HTTP_COOKIE" in os.environ) and ("ssid" in os.environ["HTTP_COOKIE"]):
+            self.sesscookie.load(os.environ["HTTP_COOKIE"])
     
+    def check_session(self, dbcnx):
+        if "ssid" in self.sesscookie.output():
+            #TODO make sure this works
+            self.response= dbcnx.select_unique_field("username","sessions","ssid", self.sesscookie["ssid"].value)
+            if self.response == "" or "Error:" in self.response:
+                self.sessauthorized = False
+                self.username = "" 
+            else:
+                self.sessauthorized = True
+                self.username = self.response
+        return self.sessauthorized
     
+    def login(self, username, password, dbcnx):
+        #check if user and password exist in database, if so, generate cookie with unique ssid and add to database
+        self.response = dbcnx.authenticate_user(username, password)
+        
+        # get users IP
+        if "REMOTE_ADDR" in os.environ:
+            self.ip = cgi.escape(os.environ["REMOTE_ADDR"])
+        
+        if self.response == 1:
+            self.newssid = uuid.UUID(bytes=os.urandom(16)).hex
+            self.newsesscookie["ssid"] = self.newssid
+            self.response = dbcnx.insert_row("sessions","`username`,`ip`,`ssid`","'"+username+"','"+self.ip+"','"+self.newssid+"'")
+            self.username = username
+            self.sessauthorized = True
+        else :
+            # TODO implement brute force protection
+            self.username = ""
+            self.sessauthorized = False
+        return self.sessauthorized
+            
+    def logout(self, dbcnx):
+        self.update_cookie()
+        if "ssid" in self.sesscookie.output():
+            self.response = dbcnx.delete_row("sessions","ssid",self.sesscookie["ssid"].value)
+        self.sessauthorized = False
+        return True
+        
+
+#TODO:
+# make sessions table
+# make this work ^
+# make code to add sessions as well
+# make sql queries secure (?? how lel)
+
 def main():
-    #cgitb.enable(display=0, logdir="/srv/http/.pylog")
+    #debugging
+    cgitb.enable(display=1)
+    #output
+    headers = ""
     output = ""
     console = ""
+    #path to the config file
+    configpath = "dbconfig.py"
     # ------------------------- FIRST we figure out what to do ------------------------
-    action = Action()
+    #for parsing url
+    action = URIaction()
+    #for parsing config file
+    configfile = dbclasses.DBConfig(configpath)
+    #all the database stuff
+    dbcnx = dbclasses.DBCnx()
+    #all the request data from cgi
+    req = cgi.FieldStorage()
+    # get the delicious cookie/s
+    auth = AuthObj()
+    
     # ----------- get database file info --------
-    
-    configpath = "dbconfig.txt"
-    
-    configfile = DBConfig()
-    dbcnx = DBCnx()
     if not (configfile.check_existence() and configfile.check_valid()):
-        console += "none or invalid config file; running database setup<br>"
+        console += "none or invalid config file; running database setup to fix the issue<br>"
         action.code = "SETUP"
-        
     # ----------- connect to database --------
-    else:    
+    else:
         dbcnx.connect(configfile)
-        console += "can't connect to database, running setup"
-        action.code = "SETUP"
+        if dbcnx.connected:
+            console += "connected to database!<br>"
+        else:
+            console += "can't connect to database!<br>"
+            action.code = "ERROR"
     
     # if we're not in setup mode, get the request details
-    if action.code != "SETUP":
+    if not (action.code == "SETUP" or action.code == "ERROR") and "uri" in req:
         
         # get the url contents
-        req = cgi.FieldStorage()
-        action.get_request(req, dbcnx)
+        action.get_request(req)
         
         console += "action.code = "+action.code+"<br>"
         console += "action.home = "+str(action.home)+"<br>"
         console += "action.filter = "+str(action.filter)+"<br>"
         console += "action.target = "+action.target+"<br>"
         console += "action.tags = "+str(action.tags)+"<br>"
-        
+    
+    # check whether there is a valid session cookie and update the auth object
+    auth.check_session(dbcnx)
+    
     # ------------------------- NOW we figure out what to do ------------------------
     
     #TODO lots of stuff here
-    
-    if action.code == "SETUP" and action.target != "setup":
-        output = "Status: 303 See other\r\nLocation: /setup"
-    elif action.code == "SETUP":
-        output = "Content-type:text/html\r\n\r\n"
-        f =open("core/setup/setup1.html")
-        output += f.read()
+    if action.code == "SETUP":
+        output += "<html><head></head><body>"+console+"</body></html>"
+    #redirect to admin/login page
     elif action.code == "ADMIN":
-         f =open("core/dashboard/admin.html")
-         output += f.read()
+        # if we are posted login data...
+        if "username" in req and "password" in req:
+            # try to login; if successful will set sessauthorized to True
+             auth.login(req["username"].value, req["password"].value, dbcnx)
+             # if successful, add the cookie to headers
+             if auth.sessauthorized:
+                headers += auth.newsesscookie.output()+" \r\n"
+             #console += "user = " +req["username"].value+" pass = "+req["password"].value+"<br>"
+             #console += "response = "+str(auth.response)+"<br>"
+        elif "logout" in req:
+            auth.logout(dbcnx)
+        # import the admin module
+        from core import admin
+        template = admin.output(auth)
+        # add the output of admin to the output
+        output += template.out
+        # regular html header added
+        headers+= "Content-type:text/html\r\n\r\n"
+        # testing stuff
+        console += "username = "+str(auth.username)+"<br>"
+        console += "response = "+str(auth.response)+"<br>"
+        output += console
     #elif action.code == "PAGE":
+     #   output = "Content-type:text/html\r\n\r\n"
+    #   output += "<html><head></head><body>"+console+"</body></html>"
      #   if page_exists(action.target):
-            # TODO do page stuff
-    #elif action.code == "BLOG":
-    #    if page_exists(action.target):
-            # TODO do blog stuff
+            # TODO load template
+    #    elif logged in:
+            # TODO would you like to create a thing
+    #    else:
+            # 404
     #elif action.code == "POST":
     #    if page_exists(action.target):
-            # TODO do post stuff
+            # TODO load template
+    #    else:
+            # 404
     #elif action.code == "EDIT":
-        
+    # if something fucked up, just print the console messages
+    else:
+        headers+= "Content-type:text/html\r\n\r\n"
+        output += "<html><head></head><body>"+console+"</body></html>"
+    #os.system("script2.py 1")
+    #main(sys.argv[1], sys.argv[2], sys.argv[3])
+    #def main(arg1, arg2, etc):
     
-    #IDK WHAT TO DO LEL
-    
-    print (output)
-    
+    print (headers+output)
     dbcnx.close()
 
 if __name__ == '__main__':
