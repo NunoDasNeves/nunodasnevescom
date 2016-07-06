@@ -59,10 +59,12 @@ class URIaction:
             elif self.items[0] == "category":
                 self.filter = True
                 self.home = True
-                self.target = ""
                 # check whether home is actually a blog
                 self.code = "PAGE"
                 self.diroffset = 1
+            elif (self.items[0] == "edit"):
+                self.code = "EDIT"
+                self.home = True
             # if its a post, it'll be preceded by this, then will have the slug as 2nd element. ignore later elements
             elif (self.items[0] == "post") and (len(self.items) > 1):
                 self.code = "POST"
@@ -80,16 +82,9 @@ class URIaction:
                 self.diroffset -=1
                 # strip the trailing slash
                 self.target = self.target[0:-1]
-                #print ("target = "+self.target)
-                #print (self.items)
-                #print(self.diroffset)
-                
+
                 self.code = "PAGE"
-                
-                #print (self.code)
-                #print (self.items)
-                #print (self.items[self.diroffset])
-                #print (self.diroffset)
+
                 # if a blog
                 if (len(self.items) > self.diroffset) and (self.items[self.diroffset] == "category"):
                     self.filter = True
@@ -138,6 +133,7 @@ class AuthObj:
         return self.sessauthorized
     
     def login(self, username, password, dbcnx):
+        # TODO password encryption
         #check if user and password exist in database, if so, generate cookie with unique ssid and add to database
         self.response = dbcnx.authenticate_user(username, password)
         
@@ -261,10 +257,13 @@ def main():
         console += "Not logged in<br>"
     # ------------------------- NOW we figure out what to do ------------------------
     
+    # ------------------------------------------------------------------------------
     #TODO lots of stuff here
     if action.code == "SETUP":
         headers+= "Content-type:text/html; charset:utf-8\r\n\r\n"
         output += "<head></head><body>"+console+"</body>"
+        
+    # ------------------------------------------------------------------------------
     #redirect to admin/login page
     elif action.code == "ADMIN":
         # if we are posted login data...
@@ -280,7 +279,7 @@ def main():
             auth.logout(dbcnx)
         # import the admin module
         from core import admin
-        template = admin.output(auth)
+        template = admin.output(auth, action.items, dbcnx)
         # add the output of admin to the output
         output += template.out
         # regular html header added
@@ -288,13 +287,15 @@ def main():
         # testing stuff
         #console += "username = "+str(auth.username)+"<br>"
         console += "response = "+str(auth.response)+"<br>"
+        
+    # ------------------------------------------------------------------------------
     # if we're just viewing a page
     elif action.code == "PAGE":
         headers+= "Content-type:text/html; charset:utf-8\r\n\r\n"
         # if logged in, show an edit button
         if auth.sessauthorized:
             output += "<a href='"+action.target+"/edit'>edit</a><br>"
-        # create an object to handle the page that's been requested
+        # database object with data relating to the page
         page = PageAction()
         # if it exists, run the template file and capture the output
         if page.check_page(action, dbcnx):
@@ -303,14 +304,15 @@ def main():
                 #import the module
                 module = importlib.import_module("content."+page.data['template'])
                 # create output object and add it to output
-                template = module.output(action, page.data)
+                template = module.output(action, page.data, dbcnx)
                 output += template.out
             else:
                 console += "Template file "+page.data['template']+" does not exist!<br>"
+        elif auth.sessauthorized:
+            output += "No page here, <a href='"+action.target+"/edit'>create</a> one?<br>"
         else:
-            console += "No page here, create one?<br>"
-        
-        
+            output += "This page does not exist! Sorry! <br>"
+
      #if page_exists(action.target):
             # TODO load template
     #    elif logged in:
@@ -322,9 +324,30 @@ def main():
             # TODO load template
     #    else:
             # 404
-    #elif action.code == "EDIT":
+            
+            
+    # ------------------------------------------------------------------------------
+    # for editing existing pages and creating new ones
+    elif action.code == "EDIT":
+        
+        headers+= "Content-type:text/html; charset:utf-8\r\n\r\n"
+        
+        if auth.sessauthorized:
+            # database object with data relating to the page
+            page = PageAction()
+            page.check_page(action, dbcnx)
+            # loade the edit module
+            module = importlib.import_module("core.edit")
+            # create output object and add it to output
+            template = module.output(action, page.data, dbcnx)
+            output += template.out
+        else:
+            output += ""
+                
     #REPLACE INTO `pages` (`title`,`author`,`slug`,`template`,`text`) VALUES ('Welcome', 'nuno', '', 'home', '<h1>wow! homepage</h1><p>this is content</p>');
     
+    
+    # ------------------------------------------------------------------------------
     # if something fucked up, just print the console messages
     else:
         headers+= "Content-type:text/html; charset:utf-8\r\n\r\n"
