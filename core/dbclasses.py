@@ -13,6 +13,7 @@ class DBConfig:
         self.password = ""
         self.host = "localhost"
         self.configpath = configpath
+        self.response = ""
         
     def check_existence(self): 
         if os.path.isfile(self.configpath):
@@ -136,43 +137,71 @@ class DBCnx:
         return True
     
     def select_unique_field(self, responsecol, table, col, val):
-        # TODO make this secure
+        # strings get escaped automatically by mysql.connector
+        self.query = ("SELECT `"+responsecol+"` FROM `"+table+"` " 
+                                "WHERE `"+col+"`=%s")
+        
         if self.connected:
             try:
-                self.cursor.execute("SELECT "+responsecol+" FROM "+table+" WHERE "+col+"='"+val+"';")
-                response = self.cursor.fetchone()[responsecol]
+                self.cursor.execute(self.query,(val,))
+                response = self.cursor.fetchone()
             except:
                 response = "Error: {}".format(mysql.connector.Error)
+            if response == None:
+                response = ""
+            elif responsecol in response:
+                response = response[responsecol]
+        return response
+    
+    def select_entire_row(self, table, col, val):
+        # strings get escaped automatically by mysql.connector
+        self.query = ("SELECT * FROM `"+table+"` " 
+                                "WHERE `"+col+"`=%s")
+        
+        try:
+            self.cursor.execute(self.query,(val,))
+            response = self.cursor.fetchone()
+        except:
+            response = "Error: {}".format(mysql.connector.Error)
         return response
     
     def authenticate_user(self, username, password):
-        # TODO make this secure
-        if self.connected:
-            try:
-                self.cursor.execute("SELECT count(username) as total FROM users WHERE username='"+username+"' AND password='"+password+"';")
-                response = self.cursor.fetchone()["total"]
-            except mysql.connector.Error as err:
-                response = "Error: {}".format(err)
+        # strings get escaped automatically by mysql.connector
+        self.query = ("SELECT count(username) as total FROM users " 
+                                "WHERE username=%s AND password=%s")
+        
+        try:
+            self.cursor.execute(self.query, (username, password))
+            response = self.cursor.fetchone()["total"]
+        except mysql.connector.Error as err:
+            response = "Error: {}".format(err)
         return response
     
-    def insert_row(self, table, cols, values):
-        # TODO make this secure
-        if self.connected:
-            try:
-                self.cursor.execute("REPLACE INTO `"+table+"` ("+cols+") VALUES ("+values+");")
-                self.cnx.commit()
-                response = "Success"
-            except mysql.connector.Error as err:
-                response = "Error: {}".format(err)
+    def add_session(self, values):
+        # strings get escaped automatically by mysql.connector
+        self.query = ("REPLACE INTO sessions (`username`,`ip`,`ssid`) " 
+                                "VALUES (%s, %s, %s)")
+
+        try:
+            self.cursor.execute(self.query, (values['username'], values['ip'], values['ssid']))
+            self.cnx.commit()
+            response = "Success"
+        except mysql.connector.Error as err:
+            response = "Error: {}".format(err)
         return response
     
     def delete_row(self, table, col, value):
-        # TODO make this secure
-        if self.connected:
-            try:
-                self.cursor.execute("DELETE FROM `"+table+"` WHERE `"+col+"`='"+value+"';")
-                self.cnx.commit()
-                response = "Success"
-            except mysql.connector.Error as err:
-                response = "Error: {}".format(err)
+        # strings get escaped automatically by mysql.connector; we don't need to escape strings passed by the calling script as they are not user input
+        self.query = ("DELETE FROM `"+table+"` " 
+                                "WHERE `"+col+"`=%s")
+
+        try:
+            # this comma needs to be there for a single value, don't ask why...?
+            self.cursor.execute(self.query, (value,))
+            self.cnx.commit()
+            response = "Success"
+        except mysql.connector.Error as err:
+            response = "Error: {}".format(err)
         return response
+    
+    

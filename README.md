@@ -8,27 +8,36 @@ simple python-based blog cms
 /-------- dir structure -------/
 
 /
-main.py
-dbconfig.txt
-/core  
-    dbconnect.py  
-    request.py  
-    response.py  
-    admin.py  
-    public.py  
-    /edit  
-        empty.html  
-        edit.html  
-    /dashboard  
-        main.html  
-* *        style.css  
-*    /setup  
-* *        setup1.html  
-* *        setup2.html  
-* *        style.css  
-*    /media  
-**        hamburger.png  
-/content  
+<ul>
+<li>main.py</li>
+<li>dbconfig.py
+<li>/core  
+	<ul>
+    <li>dbconnect.py</li>  
+    <li>request.py</li>  
+    <li>response.py</li>  
+    <li>admin.py</li>  
+    <li>public.py</li>  
+    <li>/edit  
+        <ul>
+        <li>empty.html</li>  
+        <li>edit.html</li>  
+    </ul></li>
+    <li>/dashboard  
+        <li>main.html</li>  
+        <li>style.css</li>
+    </ul></li>  
+    <li>/setup  
+        <li>setup1.html</li>  
+        <li>setup2.html</li>  
+        <li>style.css</li>
+    </ul></li>  
+   <li>/media
+   		<ul>  
+        <li>hamburger.png</li>
+        </ul></li>  
+    </ul></li>
+<li>/content</li>  
     /templates  
         page.py  
         post.py  
@@ -42,7 +51,7 @@ dbconfig.txt
         style.css  
     /uploads  
         default.jpg  
-
+</ul>
 /------------------------------/  
 /-------- SQL structure -------/
 

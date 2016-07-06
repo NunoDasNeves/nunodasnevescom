@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+# for dynamic imports
+import importlib
+
 # cgi stuff
 import cgitb
 import cgi
@@ -11,6 +14,7 @@ import uuid
 
 # database classes
 from core import dbclasses
+from datetime import datetime
 
 class URIaction:
     def __init__(self):
@@ -31,10 +35,10 @@ class URIaction:
         self.items = []
         # if there's nothing in the req we just go home
         #print ("len(req) = "+str(len(req)))
-        if len(req) == 0:
+        if "uri" not in req:
             self.home = True
             self.code = "PAGE"
-            self.target = "/"
+            self.target = ""
             
         else:
             # otherwise, split it into an array
@@ -55,7 +59,7 @@ class URIaction:
             elif self.items[0] == "category":
                 self.filter = True
                 self.home = True
-                self.target = "/"
+                self.target = ""
                 # check whether home is actually a blog
                 self.code = "PAGE"
                 self.diroffset = 1
@@ -99,16 +103,6 @@ class URIaction:
                 while self.diroffset < len(self.items):
                    self.tags.append(self.items[self.diroffset])
                    self.diroffset += 1
-            
-     
-    def is_blog(self,dbcnx):
-        #TODO write this
-        return False
- 
-class POSTdata:
-    def __init__(self):
-        self.username = ""
-        self.password = ""
 
 class AuthObj:
     def __init__(self):
@@ -124,14 +118,20 @@ class AuthObj:
     def update_cookie(self):
         if ("HTTP_COOKIE" in os.environ) and ("ssid" in os.environ["HTTP_COOKIE"]):
             self.sesscookie.load(os.environ["HTTP_COOKIE"])
+            return True
+        return False
     
     def check_session(self, dbcnx):
+        # make sure we have a cookie
         if "ssid" in self.sesscookie.output():
-            #TODO make sure this works
+            # get the username if it exists and matches ssid
             self.response= dbcnx.select_unique_field("username","sessions","ssid", self.sesscookie["ssid"].value)
+            # if invalid...
+            # TODO check this for security...should be ok but not sure
             if self.response == "" or "Error:" in self.response:
                 self.sessauthorized = False
-                self.username = "" 
+                self.username = ""
+            # otherwise it must be valid 
             else:
                 self.sessauthorized = True
                 self.username = self.response
@@ -144,13 +144,18 @@ class AuthObj:
         # get users IP
         if "REMOTE_ADDR" in os.environ:
             self.ip = cgi.escape(os.environ["REMOTE_ADDR"])
-        
+            
+        # 1 is the number of matches in the table
         if self.response == 1:
+            # make a  random 32 byte hex string
             self.newssid = uuid.UUID(bytes=os.urandom(16)).hex
             self.newsesscookie["ssid"] = self.newssid
-            self.response = dbcnx.insert_row("sessions","`username`,`ip`,`ssid`","'"+username+"','"+self.ip+"','"+self.newssid+"'")
+            # create the new sessions row
+            self.response = dbcnx.add_session({'username':username,'ip':self.ip, 'ssid':self.newssid})
+            # set username of currently logged in user
             self.username = username
             self.sessauthorized = True
+        # else response will store the error
         else :
             # TODO implement brute force protection
             self.username = ""
@@ -158,17 +163,44 @@ class AuthObj:
         return self.sessauthorized
             
     def logout(self, dbcnx):
+        # make sure we have the right cookie!
         self.update_cookie()
+        # check it exists! never hurts to be sure
         if "ssid" in self.sesscookie.output():
+            #delete that thing, store response for debugging
             self.response = dbcnx.delete_row("sessions","ssid",self.sesscookie["ssid"].value)
         self.sessauthorized = False
-        return True
-        
+        self.username = ""
+        return self.sessauthorized
 
+class PageAction:
+    def __init__(self):
+        self.exists = False
+        self.response = ""
+        self.data = {
+                         'id': 0,
+                         'title':"",
+                         'author':"",
+                         'createdate':datetime.min,
+                         'editeddate':datetime.min,
+                         'slug':"",
+                         'template':"",
+                         'text':""
+        }
+        
+    def check_page(self,action,dbcnx):
+        self.response = dbcnx.select_entire_row("pages","slug", action.target)
+        if self.response == None or "Error:" in self.response:
+            self.exists = False
+            self.args = ""
+        else:
+            self.data = self.response
+            self.exists = True
+        return self.exists
+            
+        
+        
 #TODO:
-# make sessions table
-# make this work ^
-# make code to add sessions as well
 # make sql queries secure (?? how lel)
 
 def main():
@@ -176,8 +208,12 @@ def main():
     cgitb.enable(display=1)
     #output
     headers = ""
-    output = ""
-    console = ""
+    output = "<html>"
+    console = "<br><b>Console output:</b><br>"
+    
+    # TODO make a global options object which reads from database for stuff like this
+    debug = True
+    
     #path to the config file
     configpath = "dbconfig.py"
     # ------------------------- FIRST we figure out what to do ------------------------
@@ -206,7 +242,7 @@ def main():
             action.code = "ERROR"
     
     # if we're not in setup mode, get the request details
-    if not (action.code == "SETUP" or action.code == "ERROR") and "uri" in req:
+    if not (action.code == "SETUP" or action.code == "ERROR"):
         
         # get the url contents
         action.get_request(req)
@@ -219,12 +255,16 @@ def main():
     
     # check whether there is a valid session cookie and update the auth object
     auth.check_session(dbcnx)
-    
+    if auth.sessauthorized:
+        console += "Logged in as "+str(auth.username)+"<br>"
+    else:
+        console += "Not logged in<br>"
     # ------------------------- NOW we figure out what to do ------------------------
     
     #TODO lots of stuff here
     if action.code == "SETUP":
-        output += "<html><head></head><body>"+console+"</body></html>"
+        headers+= "Content-type:text/html; charset:utf-8\r\n\r\n"
+        output += "<head></head><body>"+console+"</body>"
     #redirect to admin/login page
     elif action.code == "ADMIN":
         # if we are posted login data...
@@ -244,15 +284,34 @@ def main():
         # add the output of admin to the output
         output += template.out
         # regular html header added
-        headers+= "Content-type:text/html\r\n\r\n"
+        headers+= "Content-type:text/html; charset:utf-8\r\n\r\n"
         # testing stuff
-        console += "username = "+str(auth.username)+"<br>"
+        #console += "username = "+str(auth.username)+"<br>"
         console += "response = "+str(auth.response)+"<br>"
-        output += console
-    #elif action.code == "PAGE":
-     #   output = "Content-type:text/html\r\n\r\n"
-    #   output += "<html><head></head><body>"+console+"</body></html>"
-     #   if page_exists(action.target):
+    # if we're just viewing a page
+    elif action.code == "PAGE":
+        headers+= "Content-type:text/html; charset:utf-8\r\n\r\n"
+        # if logged in, show an edit button
+        if auth.sessauthorized:
+            output += "<a href='"+action.target+"/edit'>edit</a><br>"
+        # create an object to handle the page that's been requested
+        page = PageAction()
+        # if it exists, run the template file and capture the output
+        if page.check_page(action, dbcnx):
+            # pipe output to the temp file
+            if os.path.isfile("content/"+page.data['template']+".py"):
+                #import the module
+                module = importlib.import_module("content."+page.data['template'])
+                # create output object and add it to output
+                template = module.output(action, page.data)
+                output += template.out
+            else:
+                console += "Template file "+page.data['template']+" does not exist!<br>"
+        else:
+            console += "No page here, create one?<br>"
+        
+        
+     #if page_exists(action.target):
             # TODO load template
     #    elif logged in:
             # TODO would you like to create a thing
@@ -264,15 +323,20 @@ def main():
     #    else:
             # 404
     #elif action.code == "EDIT":
+    #REPLACE INTO `pages` (`title`,`author`,`slug`,`template`,`text`) VALUES ('Welcome', 'nuno', '', 'home', '<h1>wow! homepage</h1><p>this is content</p>');
+    
     # if something fucked up, just print the console messages
     else:
-        headers+= "Content-type:text/html\r\n\r\n"
-        output += "<html><head></head><body>"+console+"</body></html>"
-    #os.system("script2.py 1")
-    #main(sys.argv[1], sys.argv[2], sys.argv[3])
-    #def main(arg1, arg2, etc):
+        headers+= "Content-type:text/html; charset:utf-8\r\n\r\n"
     
-    print (headers+output)
+    # add the ending html tag...
+    output += "</html>"
+    # if global debug is off, don't bother with the console
+    if debug == False:
+        console = ""
+    # string headers, output and console together!
+    print (headers+output+console)
+    # close database connection
     dbcnx.close()
 
 if __name__ == '__main__':
