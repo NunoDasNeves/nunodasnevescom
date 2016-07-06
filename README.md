@@ -20,7 +20,8 @@ simple python-based designed for blogs
         <li>empty.html</li>  
         <li>edit.html</li>  
         </ul></li>
-    <li>/admin  
+    <li>/admin
+        <ul>  
         <li>dashboard.html</li>  
         <li>login.html</li>  
         <li>style.css</li>  
@@ -48,7 +49,7 @@ simple python-based designed for blogs
         </ul></li>
     <li>/theme  
         <ul>  
-        </li>header.html</li>  
+        <li>header.html</li>  
         <li>sidebar.html</li>  
         <li>footer.html</li>  
         <li>somescript.js</li>  
@@ -67,54 +68,54 @@ simple python-based designed for blogs
 dbname: pycms  
 
 pages  
-    *id  
-    *title
-    *author
-    *createdate
-    *editeddate
-    *slug
-    *text
-    *template
+* id  
+* title
+* author
+* createdate
+* editeddate
+* slug
+* text
+* template
 
 posts  
-    *id
-    *author
-    *title
-    *createdate
-    *editeddate
-    *tags
-    *slug
-    *photo
-    *text
+* id
+* author
+* title
+* createdate
+* editeddate
+* tags
+* slug
+* photo
+* text
 
 comments  
-    *id
-    *postid
-    *author
-    *date
-    *text
+* id
+* postid
+* author
+* date
+* text
 
 users  
-    *id
-    *joindate
-    *group
-    *username
-    *email
-    *password
+* id
+* joindate
+* group
+* username
+* email
+* password
 
 sessions  
-    *id
-    *sid
-    *user
-    *date
+* id
+* sid
+* user
+* date
     
 options  
-    *pagetemplate
-    *posttemplate
-    *hometemplate
-    *allownewusers
-    *allowcomments
-    *categoryslug
+* pagetemplate
+* posttemplate
+* hometemplate
+* allownewusers
+* allowcomments
+* categoryslug
 
 
 /------------------------------/
