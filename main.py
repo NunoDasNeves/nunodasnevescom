@@ -18,23 +18,47 @@ from datetime import datetime
 
 class URIaction:
     def __init__(self):
-        # codes: NONE SETUP ADMIN PAGE POST EDIT ERROR
+        '''
+        self.data = {
+                     'code':"NONE",
+                     'home':False,
+                     'target':"",
+                     'filter':False,
+                     'tags':[]
+                            }
+        '''
+        # core pages are preceded by 'admin' - can't be edited
+        # all other pages can be edited; including posts, pages etc...blogs too, no matter what category tags they have
+        
+        # codes: NONE SETUP ADMIN PAGE POST EDIT
         self.code = "NONE"
         # is the home page
         self.home = False
         # if its a blog page, is there a filter applied?
         self.filter = False
-        # name or path of blog post/page
+        # name or path of blog post/page as discrete elements (eg page/subpage => page,subpage)
         self.target = ""
         #category tags
         self.tags = []
+        #is it a post
+        self.post = False
         
     def get_request(self, req):
         
+        # if the thing is empty, its the homepage, otherwise:
+        # if admin, then get target after admin without restrictions
+        # if category, get tags after category, stopping if we reach edit
+        # if post, get target after post with restriction stop if we reach edit
+        # else get the target; with restriction: if we reach category or edit, then stop
+        # if we reached category, get the tags after that, with restriction: stop if we reach edit
+        # if its not admin, and the last item is edit, its edit
+        
+        # some local variables for internal purposes
         self.diroffset = 0
         self.items = []
-        # if there's nothing in the req we just go home
-        #print ("len(req) = "+str(len(req)))
+        self.restrictions = ["category", "edit"]
+        
+        # if there's no uri in the req we just go home
         if "uri" not in req:
             self.home = True
             self.code = "PAGE"
@@ -43,61 +67,62 @@ class URIaction:
         else:
             # otherwise, split it into an array
             self.items = req.getvalue("uri").split('/')
-            
-            # strip empty strings
+            # strip empty strings from front and back
             while self.items[-1] == "":
                 self.items.pop(-1)
             while self.items[0] == "":
                 self.items.pop(0)
-                
-            #print (self.items)
-            # if its admin, that's just one page
+            
+            # if its admin, then we just set code to admin and later code will deal with the rest
             if self.items[0] == "admin":
                 self.code = "ADMIN"
-                self.target = "admin"
+                self.diroffset = 1
             # if its category on the home page, then this
             elif self.items[0] == "category":
                 self.filter = True
                 self.home = True
-                # check whether home is actually a blog
                 self.code = "PAGE"
                 self.diroffset = 1
             elif (self.items[0] == "edit"):
                 self.code = "EDIT"
                 self.home = True
-            # if its a post, it'll be preceded by this, then will have the slug as 2nd element. ignore later elements
+            # if its a post, it'll be preceded by this
             elif (self.items[0] == "post") and (len(self.items) > 1):
                 self.code = "POST"
-                # get the slug
-                self.target = self.items[1]
-            # otherwise, we're on some other page. figure it out (page could be called 'post')
+                self.post = True
+                self.diroffset = 1
+                # otherwise, we're on some other page. figure it out (page could be called 'post')
             else:
-                # get target
-                while self.diroffset < len(self.items):
-                    if (self.items[self.diroffset] == "edit") or (self.items[self.diroffset] =="category"):
-                        self.diroffset += 1
-                        break
+                # otherwise its some other page!
+                self.code = "PAGE"
+                
+            # get target
+            if (self.home == False):
+                while (self.diroffset < len(self.items)) and (self.items[self.diroffset] not in self.restrictions):
                     self.target = self.target + self.items[self.diroffset] + "/"
                     self.diroffset += 1
-                self.diroffset -=1
-                # strip the trailing slash
-                self.target = self.target[0:-1]
-
-                self.code = "PAGE"
-
-                # if a blog
-                if (len(self.items) > self.diroffset) and (self.items[self.diroffset] == "category"):
+                # strip the trailing slash if one was added
+                if len(self.target) > 1:
+                    if self.target[-1] == "/": 
+                        self.target = self.target[0:-1]
+            
+            # if we've arrived at a category, set necessary values for loop
+            if len(self.items) > self.diroffset:
+                if self.items[self.diroffset] == "category":
                     self.filter = True
                     self.diroffset += 1
-                # else if an edit page
-                elif (self.items[self.diroffset] == "edit"):
+                    # else if an edit page
+                elif self.items[self.diroffset] == "edit":
                     self.code = "EDIT"
             
+            # ge tags
             if self.filter == True:
-                # get tags
-                while self.diroffset < len(self.items):
+                while (self.diroffset < len(self.items)) and (self.items[self.diroffset] != "edit"):
                    self.tags.append(self.items[self.diroffset])
                    self.diroffset += 1
+            
+            if self.items[-1] == "edit":
+                self.code = "EDIT"
 
 class AuthObj:
     def __init__(self):
@@ -248,6 +273,7 @@ def main():
         console += "action.filter = "+str(action.filter)+"<br>"
         console += "action.target = "+action.target+"<br>"
         console += "action.tags = "+str(action.tags)+"<br>"
+        console += "action.post = "+str(action.post)+"<br>"
     
     # check whether there is a valid session cookie and update the auth object
     auth.check_session(dbcnx)
