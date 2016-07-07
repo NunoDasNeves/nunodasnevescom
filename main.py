@@ -30,7 +30,7 @@ class URIaction:
         # core pages are preceded by 'admin' - can't be edited
         # all other pages can be edited; including posts, pages etc...blogs too, no matter what category tags they have
         
-        # codes: NONE SETUP ADMIN PAGE POST EDIT
+        # codes: NONE SETUP ADMIN PAGE POST EDIT ERROR
         self.code = "NONE"
         # is the home page
         self.home = False
@@ -44,19 +44,6 @@ class URIaction:
         self.post = False
         
     def get_request(self, req):
-        
-        # if the thing is empty, its the homepage, otherwise:
-        # if admin, then get target after admin without restrictions
-        # if category, get tags after category, stopping if we reach edit
-        # if post, get target after post with restriction stop if we reach edit
-        # else get the target; with restriction: if we reach category or edit, then stop
-        # if we reached category, get the tags after that, with restriction: stop if we reach edit
-        # if its not admin, and the last item is edit, its edit
-        
-        # some local variables for internal purposes
-        self.diroffset = 0
-        self.items = []
-        self.restrictions = ["category", "edit"]
         
         # if there's no uri in the req we just go home
         if "uri" not in req:
@@ -73,56 +60,63 @@ class URIaction:
             while self.items[0] == "":
                 self.items.pop(0)
             
-            # if its admin, then we just set code to admin and later code will deal with the rest
+            # first we deal with cases where the first element is a unique trigger denoting a post or admin uri
             if self.items[0] == "admin":
                 self.code = "ADMIN"
                 self.diroffset = 1
-            # if its category on the home page, then this
-            elif self.items[0] == "category":
-                self.filter = True
-                self.home = True
-                self.code = "PAGE"
-                self.diroffset = 1
-            elif (self.items[0] == "edit"):
-                self.code = "EDIT"
-                self.home = True
-            # if its a post, it'll be preceded by this
-            elif (self.items[0] == "post") and (len(self.items) > 1):
+            elif self.items[0] == "post":
                 self.code = "POST"
-                self.post = True
                 self.diroffset = 1
-                # otherwise, we're on some other page. figure it out (page could be called 'post')
+                # a post must have a name
+                if len(self.items) == 1:
+                    self.code = "ERROR"
+            # if these are not met, we're on a regular page of some kind
             else:
-                # otherwise its some other page!
                 self.code = "PAGE"
-                
-            # get target
-            if (self.home == False):
-                while (self.diroffset < len(self.items)) and (self.items[self.diroffset] not in self.restrictions):
-                    self.target = self.target + self.items[self.diroffset] + "/"
-                    self.diroffset += 1
-                # strip the trailing slash if one was added
-                if len(self.target) > 1:
-                    if self.target[-1] == "/": 
-                        self.target = self.target[0:-1]
+                self.diroffset = 0
             
-            # if we've arrived at a category, set necessary values for loop
-            if len(self.items) > self.diroffset:
-                if self.items[self.diroffset] == "category":
-                    self.filter = True
-                    self.diroffset += 1
-                    # else if an edit page
-                elif self.items[self.diroffset] == "edit":
-                    self.code = "EDIT"
-            
-            # ge tags
-            if self.filter == True:
-                while (self.diroffset < len(self.items)) and (self.items[self.diroffset] != "edit"):
-                   self.tags.append(self.items[self.diroffset])
-                   self.diroffset += 1
-            
-            if self.items[-1] == "edit":
-                self.code = "EDIT"
+            # this loop goes through each element and does stuff. 
+            # bit convoluted but much better than previous solution
+            while self.diroffset < len(self.items):
+                # first we deal with all items before we encounter a 'category' item
+                if self.filter == False:
+                    # flip filter on if we encounter 'category'
+                    if self.items[self.diroffset] == "category":
+                        # we encountered 'category', so following items wil be tags, not target
+                        self.filter = True
+                        # special case
+                        if self.diroffset == 1 and self.code == "POST":
+                            self.code = "ERROR"
+                        else:
+                            # home case
+                            if self.diroffset == 0:
+                                    self.home = True
+                    # break at the first 'edit' we encounter; rest of uri is discarded
+                    elif self.items[self.diroffset] == "edit":
+                        # deal with a special case
+                        if self.diroffset == 1 and self.code == "POST":
+                            self.code = "ERROR"
+                        # another special case
+                        elif self.code == "ADMIN":
+                            self.code = "ERROR"
+                        else:
+                            self.code = "EDIT"
+                            # home case
+                            if self.diroffset == 0:
+                                self.home = True
+                        break
+                    else:
+                        # if none of that shit happened, we append the item to target
+                        self.target += self.items[self.diroffset] + "/"
+                # if we're past a 'category', the rest of the URI is tags 
+                else:
+                        self.tags.append(self.items[self.diroffset])
+                # always increment no matter what
+                self.diroffset += 1
+            #strip last slash, making sure to account for the home case
+            if len(self.target)>0:
+                if self.target[-1] == "/": 
+                    self.target = self.target[0:-1]
 
 class AuthObj:
     def __init__(self):
@@ -351,7 +345,6 @@ def main():
     #    else:
             # 404
             
-            
     # ------------------------------------------------------------------------------
     # for editing existing pages and creating new ones
     elif action.code == "EDIT":
@@ -372,6 +365,10 @@ def main():
                 
     #REPLACE INTO `pages` (`title`,`author`,`slug`,`template`,`text`) VALUES ('Welcome', 'nuno', '', 'home', '<h1>wow! homepage</h1><p>this is content</p>');
     
+    # ------------------------------------------------------------------------------
+    elif action.code == "ERROR":
+        headers+= "Content-type:text/html; charset:utf-8\r\n\r\n"
+        output += "Invalid URI<br>"
     
     # ------------------------------------------------------------------------------
     # if something fucked up, just print the console messages
