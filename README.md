@@ -15,14 +15,10 @@ simple python-based designed for blogs
     <li>dbclasses.py</li>  
     <li>admin.py</li>  
     <li>edit.py</li>  
-    <li>/edit  
-        <ul>
-        <li>empty.html</li>  
+    <li>/admin  
+        <ul>    
         <li>edit.html</li>  
-        </ul></li>
-    <li>/admin
-        <ul>  
-        <li>dashboard.html</li>  
+        <li>dashboard.html</li>    
         <li>login.html</li>  
         <li>style.css</li>  
         </ul></li>  

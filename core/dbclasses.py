@@ -190,6 +190,19 @@ class DBCnx:
             response = "Error: {}".format(err)
         return response
     
+    def add_page(self, author, title, slug, template, text):
+        # strings get escaped automatically by mysql.connector
+        self.query = ("REPLACE INTO pages (`title`,`author`,`slug`,`template`,`text`) " 
+                                "VALUES (%s, %s, %s, %s, %s)")
+        
+        try:
+            self.cursor.execute(self.query, (title, author, slug, template, text))
+            self.cnx.commit()
+            response = "Success"
+        except mysql.connector.Error as err:
+            response = "Error: {}".format(err)
+        return response
+    
     def delete_row(self, table, col, value):
         # strings get escaped automatically by mysql.connector; we don't need to escape strings passed by the calling script as they are not user input
         self.query = ("DELETE FROM `"+table+"` " 

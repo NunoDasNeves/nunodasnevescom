@@ -42,7 +42,9 @@ class URIaction:
         self.tags = []
         #is it a post
         self.post = False
-        
+        # for url formatting
+        self.slash = "/"
+    
     def get_request(self, req):
         
         # if there's no uri in the req we just go home
@@ -114,9 +116,12 @@ class URIaction:
                 # always increment no matter what
                 self.diroffset += 1
             #strip last slash, making sure to account for the home case
-            if len(self.target)>0:
+            if len(self.target) > 0:
                 if self.target[-1] == "/": 
                     self.target = self.target[0:-1]
+        # for url formatting
+        if self.home:
+            self.slash = ""
 
 class AuthObj:
     def __init__(self):
@@ -202,7 +207,7 @@ class PageAction:
                          'template':"",
                          'text':""
         }
-        
+    
     def check_page(self,action,dbcnx):
         self.response = dbcnx.select_entire_row("pages","slug", action.target)
         if self.response == None or "Error:" in self.response:
@@ -213,8 +218,6 @@ class PageAction:
             self.exists = True
         return self.exists
             
-        
-        
 #TODO:
 # make sql queries secure (?? how lel)
 
@@ -314,7 +317,7 @@ def main():
         headers+= "Content-type:text/html; charset:utf-8\r\n\r\n"
         # if logged in, show an edit button
         if auth.sessauthorized:
-            output += "<a href='"+action.target+"/edit'>edit</a><br>"
+            output += "<a href='"+action.slash+action.target+"/edit'>edit</a><br>"
         # database object with data relating to the page
         page = PageAction()
         # if it exists, run the template file and capture the output
@@ -329,7 +332,7 @@ def main():
             else:
                 console += "Template file "+page.data['template']+" does not exist!<br>"
         elif auth.sessauthorized:
-            output += "No page here, <a href='"+action.target+"/edit'>create</a> one?<br>"
+            output += "No page here, <a href='"+action.slash+action.target+"/edit'>create</a> one?<br>"
         else:
             output += "This page does not exist! Sorry! <br>"
 
@@ -352,6 +355,17 @@ def main():
         headers+= "Content-type:text/html; charset:utf-8\r\n\r\n"
         
         if auth.sessauthorized:
+            
+            if "edittitle" in req and "edittemplate" in req and "edittext" in req:
+                # this deals with the homepage issue
+                if "editslug" in req:
+                    slug = req['editslug'].value
+                else:
+                    slug = ""
+                console += dbcnx.add_page(auth.username, req['edittitle'].value, slug, req['edittemplate'].value, req['edittext'].value) +"<br>"
+                
+            elif "deletepage" in req and 'editslug' in req:
+                console += dbcnx.delete_row("pages", "slug", req['editslug'.value]) +"<br>"
             # database object with data relating to the page
             page = PageAction()
             page.check_page(action, dbcnx)
