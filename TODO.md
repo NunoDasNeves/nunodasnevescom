@@ -1,7 +1,6 @@
 # pynocms TODO file
 
 soon (within next week or two)
-* delete page functionality
 * pages dashboard (list existing pages)
 * make a homepage for my resume (quite a bit of html/css)
 * set up server (aws? or some other provider...idk...)

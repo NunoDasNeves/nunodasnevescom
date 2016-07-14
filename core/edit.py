@@ -11,33 +11,37 @@ def get_file(path):
     return o
 
 class output():
-    def __init__(self, auth, action, req, pagedata, dbcnx):
+    def __init__(self, glob_vars):
+        glob_vars.page.check_page(glob_vars.uri, glob_vars.dbcnx)
         self.console = ""
         self.out = ""
-        self.deletepage = "<input type='submit' name='deletepage' value='Remove page'></br>"
-        # deal with post data
-        if "deletepage" in req and 'editslug' in req:
-            self.deletepage = "Are you sure? <input type='submit' name='confirmdeletepage' value='Delete this entire page'></br>"
-        elif "confirmdeletepage" in req and 'editslug' in req:
-            self.console += dbcnx.delete_row("pages", "slug", req['editslug'].value) +"<br>"
-        elif "edittitle" in req and "edittemplate" in req and "edittext" in req:
-            # this deals with the homepage issue
-            if "editslug" in req:
-                self.slug = req['editslug'].value
+        if glob_vars.auth.sessauthorized:
+            self.deletepage = "<input type='submit' name='deletepage' value='Remove page'></br>"
+            # deal with post data
+            if "deletepage" in glob_vars.req and 'editslug' in glob_vars.req:
+                self.deletepage = "Are you sure? <input type='submit' name='confirmdeletepage' value='Delete this entire page'></br>"
+            elif "confirmdeletepage" in glob_vars.req and 'editslug' in glob_vars.req:
+                self.console += glob_vars.dbcnx.delete_row("pages", "slug", glob_vars.req['editslug'].value) +"<br>"
+            elif "edittitle" in glob_vars.req and "edittemplate" in glob_vars.req and "edittext" in glob_vars.req:
+                # this deals with the homepage issue
+                if "editslug" in glob_vars.req:
+                    self.slug = glob_vars.req['editslug'].value
+                else:
+                    self.slug = ""
+                self.console += glob_vars.dbcnx.add_page(glob_vars.auth.username, glob_vars.req['edittitle'].value, self.slug, glob_vars.req['edittemplate'].value, glob_vars.req['edittext'].value) +"<br>"
+            
+            glob_vars.page.check_page(glob_vars.uri, glob_vars.dbcnx)
+            self.out += get_file('core/admin/header.html')
+            self.pagepath = 'core/admin/edit.html'
+            # this fixes a problem with url..making
+            if glob_vars.uri.home:
+                self.editurl = ""
             else:
-                self.slug = ""
-            self.console += dbcnx.add_page(auth.username, req['edittitle'].value, self.slug, req['edittemplate'].value, req['edittext'].value) +"<br>"
-        
-        self.out += get_file('core/admin/header.html')
-        self.pagepath = 'core/admin/edit.html'
-        # this fixes a problem with url..making
-        if action.home:
-            self.editurl = ""
+                self.editurl = "/" + glob_vars.uri.target +"/"
+            self.out += get_file(self.pagepath).format(get_file('core/admin/menu.html'), self.editurl + "edit", glob_vars.page.data['title'], glob_vars.uri.target, self.get_templates(glob_vars.page.data['template']), glob_vars.page.data['text'], self.deletepage)
+            self.out += get_file('core/admin/footer.html')
         else:
-            self.editurl = "/" + action.target +"/"
-        self.out += get_file(self.pagepath).format(get_file('core/admin/menu.html'), self.editurl + "edit", pagedata['title'], action.target, self.get_templates(pagedata['template']), pagedata['text'], self.deletepage)
-        self.out += get_file('core/admin/footer.html')
-        
+            self.out += get_file("core/admin/login.html")
     def get_templates(self, default):
         self.templatelist = []
         # use os.walk to get a list of files in the content directory
