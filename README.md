@@ -2,7 +2,7 @@
 
 "Its not cms unless its pynocms"
 
-simple python-based designed for blogs 
+simple python-based designed for blogs
 
 /------------------------------/  
 /-------- dir structure -------/
