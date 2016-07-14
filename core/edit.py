@@ -11,8 +11,23 @@ def get_file(path):
     return o
 
 class output():
-    def __init__(self, action, pagedata, dbcnx):
+    def __init__(self, auth, action, req, pagedata, dbcnx):
+        self.console = ""
         self.out = ""
+        self.deletepage = "<input type='submit' name='deletepage' value='Remove page'></br>"
+        # deal with post data
+        if "deletepage" in req and 'editslug' in req:
+            self.deletepage = "Are you sure? <input type='submit' name='confirmdeletepage' value='Delete this entire page'></br>"
+        elif "confirmdeletepage" in req and 'editslug' in req:
+            self.console += dbcnx.delete_row("pages", "slug", req['editslug'].value) +"<br>"
+        elif "edittitle" in req and "edittemplate" in req and "edittext" in req:
+            # this deals with the homepage issue
+            if "editslug" in req:
+                self.slug = req['editslug'].value
+            else:
+                self.slug = ""
+            self.console += dbcnx.add_page(auth.username, req['edittitle'].value, self.slug, req['edittemplate'].value, req['edittext'].value) +"<br>"
+        
         self.out += get_file('core/admin/header.html')
         self.pagepath = 'core/admin/edit.html'
         # this fixes a problem with url..making
@@ -20,7 +35,7 @@ class output():
             self.editurl = ""
         else:
             self.editurl = "/" + action.target +"/"
-        self.out += get_file(self.pagepath).format(get_file('core/admin/menu.html'), self.editurl + "edit", pagedata['title'], action.target, self.get_templates(pagedata['template']), pagedata['text'])
+        self.out += get_file(self.pagepath).format(get_file('core/admin/menu.html'), self.editurl + "edit", pagedata['title'], action.target, self.get_templates(pagedata['template']), pagedata['text'], self.deletepage)
         self.out += get_file('core/admin/footer.html')
         
     def get_templates(self, default):

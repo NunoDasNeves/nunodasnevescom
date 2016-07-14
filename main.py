@@ -259,6 +259,7 @@ def main():
             console += "can't connect to database!<br>"
             action.code = "ERROR"
     
+    
     # if we're not in setup mode, get the request details
     if not (action.code == "SETUP" or action.code == "ERROR"):
         
@@ -280,13 +281,17 @@ def main():
         console += "Not logged in<br>"
     # ------------------------- NOW we figure out what to do ------------------------
     
-    # ------------------------------------------------------------------------------
-    #TODO lots of stuff here
+    # req - get data, post data
+    # action - uri data
+    # page - database entry for the page
+    # dbcnx - database object for further queries
+    
+    # -------------------------------------------------------------------------------------------------
     if action.code == "SETUP":
         headers+= "Content-type:text/html; charset:utf-8\r\n\r\n"
         output += "<head></head><body>"+console+"</body>"
         
-    # ------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------------------------
     #redirect to admin/login page
     elif action.code == "ADMIN":
         # if we are posted login data...
@@ -355,25 +360,15 @@ def main():
         headers+= "Content-type:text/html; charset:utf-8\r\n\r\n"
         
         if auth.sessauthorized:
-            
-            if "edittitle" in req and "edittemplate" in req and "edittext" in req:
-                # this deals with the homepage issue
-                if "editslug" in req:
-                    slug = req['editslug'].value
-                else:
-                    slug = ""
-                console += dbcnx.add_page(auth.username, req['edittitle'].value, slug, req['edittemplate'].value, req['edittext'].value) +"<br>"
-                
-            elif "deletepage" in req and 'editslug' in req:
-                console += dbcnx.delete_row("pages", "slug", req['editslug'.value]) +"<br>"
             # database object with data relating to the page
             page = PageAction()
             page.check_page(action, dbcnx)
             # loade the edit module
             module = importlib.import_module("core.edit")
             # create output object and add it to output
-            template = module.output(action, page.data, dbcnx)
+            template = module.output(auth, action, req, page.data, dbcnx)
             output += template.out
+            console += template.console
         else:
             output += ""
                 
