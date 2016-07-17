@@ -116,20 +116,19 @@ options
 
 /------------------------------/
 
-/etc/httpd/conf/httpd.conf
-```
-\<Directory "/srv/http">
+apache config
+
+make sure the following modules are enabled:
+cgi
+dir
+rewrite
+
+'''
+<Directory "/srv/http">  
 
     Options Indexes FollowSymLinks  
     Allow Override All  
     
     Require all granted  
-    Options +ExecCGI  
-    AddHandler cgi-script .py
-
-\</Directory\>
-
-\<IfModule dir_module\>  
-    DirectoryIndex main.py  
-\</IfModule\>  
-```
+</Directory>
+'''

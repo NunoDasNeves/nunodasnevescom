@@ -1,3 +1,5 @@
+#!/usr/bin/python3.5
+
 # for cookies and ssids and stuff other things
 import os
 import http.cookies
