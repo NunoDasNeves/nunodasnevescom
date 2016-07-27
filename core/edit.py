@@ -13,7 +13,7 @@ def get_file(path):
 class output():
     def __init__(self, glob_vars):
         glob_vars.page.check_page(glob_vars.uri, glob_vars.dbcnx)
-        self.console = ""
+        self.console = "---edit---<br>"
         self.out = ""
         if glob_vars.auth.sessauthorized:
             self.deletepage = "<input type='submit' name='deletepage' value='Remove page'></br>"
@@ -21,14 +21,18 @@ class output():
             if "deletepage" in glob_vars.req and 'editslug' in glob_vars.req:
                 self.deletepage = "Are you sure? <input type='submit' name='confirmdeletepage' value='Delete this entire page'></br>"
             elif "confirmdeletepage" in glob_vars.req and 'editslug' in glob_vars.req:
-                self.console += glob_vars.dbcnx.delete_row("pages", "slug", glob_vars.req['editslug'].value) +"<br>"
+                self.console += str(glob_vars.dbcnx.delete_row("pages", "slug", glob_vars.req['editslug'].value)['success']) +"<br>"
             elif "edittitle" in glob_vars.req and "edittemplate" in glob_vars.req and "edittext" in glob_vars.req:
                 # this deals with the homepage issue
                 if "editslug" in glob_vars.req:
                     self.slug = glob_vars.req['editslug'].value
                 else:
                     self.slug = ""
-                self.console += glob_vars.dbcnx.add_page(glob_vars.auth.username, glob_vars.req['edittitle'].value, self.slug, glob_vars.req['edittemplate'].value, glob_vars.req['edittext'].value) +"<br>"
+                glob_vars.dbcnx.add_page(glob_vars.auth.username, glob_vars.req['edittitle'].value, self.slug, glob_vars.req['edittemplate'].value, glob_vars.req['edittext'].value)
+                if glob_vars.dbcnx.response['success'] == False:
+                    self.console += glob_vars.dbcnx.response['status'] +"<br>"
+                else:
+                    self.console += "Successfully added or updated page<br>"
             
             glob_vars.page.check_page(glob_vars.uri, glob_vars.dbcnx)
             self.out += get_file('core/admin/header.html')

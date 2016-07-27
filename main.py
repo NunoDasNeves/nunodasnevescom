@@ -129,11 +129,11 @@ class PageData:
     
     def check_page(self,action,dbcnx):
         self.response = dbcnx.select_entire_row("pages","slug", action.target)
-        if self.response == None or "Error:" in self.response:
+        if self.response['data'] == "":
             self.exists = False
             self.args = ""
         else:
-            self.data = self.response
+            self.data = self.response['data']
             self.exists = True
         return self.exists
 #TODO:
@@ -158,20 +158,37 @@ class GlobalData:
         
         #stuff
         self.output = ""
-        self.console = ""
+        self.console = "---global---<br>"
         
         # ----------- get database file info --------
-        if not (self._configfile.check_existence() and self._configfile.check_valid()):
-            self.console += "none or invalid config file; running database setup to fix the issue<br>"
+        if not self._configfile.check_existence():
+            self.console += "No config file - running setup to fix the issue <br>"
             self.uri.code = "SETUP"
         # ----------- connect to database --------
-        else:
+        elif self._configfile.check_valid():
+            # connect to the database
             self.dbcnx.connect(self._configfile)
             if self.dbcnx.connected:
-                self.console += "connected to database!<br>"
+                self.console += "Connected to database!<br>"
             else:
-                self.console += "can't connect to database!<br>"
+                self.console += "Can't connect to database!<br>"
                 self.uri.code = "ERROR"
+        else:
+            self.console += "Error in config file! Please remove it and re-run setup <br>"
+            self.uri.code = "ERROR"
+        
+        self.console += "Data: " + str(self.dbcnx.check_tables()['data']) + "<br>"
+        #self.console += "Success: " + str(self.dbcnx.response['success']) + "<br>"
+        #self.console += "Status: " + str(self.dbcnx.response['status']) + "<br>"
+        
+        if self.dbcnx.db_status == 1:
+            self.console += "Database looks good!<br>"
+        elif self.dbcnx.db_status == 0:
+            self.console += "None or missing tables detected, running setup<br>"
+            self.uri.code = "SETUP"
+        elif self.dbcnx.db_status == -1:
+            self.console += self.dbcnx.response['status'] + ", Please fix or remove the '" + self.dbcnx.response['data'] + "' table and run setup again<br>"
+            self.uri.code = "ERROR"
         
         # if we're not in setup mode, get the request details
         if not (self.uri.code == "SETUP" or self.uri.code == "ERROR"):

@@ -1,6 +1,6 @@
 #!/usr/bin/python3.5
 
-# for cookies and ssids and stuff other things
+# for cookies and sessionids and stuff other things
 import os
 import http.cookies
 import uuid
@@ -19,30 +19,31 @@ class AuthObj:
         self.response = ""
         
     def update_cookie(self):
-        if ("HTTP_COOKIE" in os.environ) and ("ssid" in os.environ["HTTP_COOKIE"]):
+        if ("HTTP_COOKIE" in os.environ) and ("sessionid" in os.environ["HTTP_COOKIE"]):
             self.sesscookie.load(os.environ["HTTP_COOKIE"])
             return True
         return False
     
     def check_session(self, dbcnx):
         # make sure we have a cookie
-        if "ssid" in self.sesscookie.output():
-            # get the username if it exists and matches ssid
-            self.response= dbcnx.select_unique_field("username","sessions","ssid", self.sesscookie["ssid"].value)
+        if "sessionid" in self.sesscookie.output():
+            # get the username if it exists and matches sessionid
+            # TODO change ssid to sessionid
+            self.response = dbcnx.select_unique_field("username","sessions","ssid", self.sesscookie["sessionid"].value)
             # if invalid...
             # TODO check this for security...should be ok but not sure
-            if self.response == "" or "Error:" in self.response:
+            if self.response['success'] == False:
                 self.sessauthorized = False
                 self.username = ""
             # otherwise it must be valid 
             else:
                 self.sessauthorized = True
-                self.username = self.response
+                self.username = self.response['data']
         return self.sessauthorized
     
     def login(self, username, password, dbcnx):
         # TODO password encryption
-        #check if user and password exist in database, if so, generate cookie with unique ssid and add to database
+        #check if user and password exist in database, if so, generate cookie with unique sessionid and add to database
         self.response = dbcnx.authenticate_user(username, password)
         
         # get users IP
@@ -50,17 +51,17 @@ class AuthObj:
             self.ip = cgi.escape(os.environ["REMOTE_ADDR"])
             
         # 1 is the number of matches in the table
-        if self.response == 1:
+        if self.response['data'] == 1 and self.response['success'] == True:
             # make a  random 32 byte hex string
-            self.newssid = uuid.UUID(bytes=os.urandom(16)).hex
-            self.newsesscookie["ssid"] = self.newssid
+            self.newsessionid = uuid.UUID(bytes=os.urandom(16)).hex
+            self.newsesscookie["sessionid"] = self.newsessionid
             # create the new sessions row
-            self.response = dbcnx.add_session({'username':username,'ip':self.ip, 'ssid':self.newssid})
+            self.response = dbcnx.add_session({'username':username,'ip':self.ip, 'sessionid':self.newsessionid})
             # set username of currently logged in user
             self.username = username
             self.sessauthorized = True
-        # else response will store the error
-        else :
+            # else response will store the error
+        else:
             # TODO implement brute force protection
             self.username = ""
             self.sessauthorized = False
@@ -70,9 +71,9 @@ class AuthObj:
         # make sure we have the right cookie!
         self.update_cookie()
         # check it exists! never hurts to be sure
-        if "ssid" in self.sesscookie.output():
+        if "sessionid" in self.sesscookie.output():
             #delete that thing, store response for debugging
-            self.response = dbcnx.delete_row("sessions","ssid",self.sesscookie["ssid"].value)
+            self.response = dbcnx.delete_row("sessions", "ssid", self.sesscookie["sessionid"].value)
         self.sessauthorized = False
         self.username = ""
         return self.sessauthorized

@@ -6,7 +6,7 @@ def get_file(path):
         o = f.read()
         f.close()
     except:
-        o = "Error opening "+path
+        o = "Error opening " + path
     return o
 
 class output():
